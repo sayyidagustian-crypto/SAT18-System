@@ -225,6 +225,7 @@ export const ErrorAnalyzerTool: React.FC<ErrorAnalyzerToolProps> = ({ knowledgeB
                     
                     {analysisResult && analysisResult.length > 0 && (
                         <div className="space-y-4">
+                            <h4 className="text-lg font-semibold text-sat-white mb-3">Known Errors (Offline Analysis)</h4>
                             {analysisResult.map((result, index) => (
                                 <div key={index} className="bg-sat-blue p-4 rounded-lg border border-sat-gray/50 animate-fade-in">
                                     <div className="flex justify-between items-center mb-2">
@@ -247,9 +248,9 @@ export const ErrorAnalyzerTool: React.FC<ErrorAnalyzerToolProps> = ({ knowledgeB
 
                     {newDiscoveries.length > 0 && (
                         <div className="mt-6 pt-4 border-t border-dashed border-sat-accent/30">
-                             <div className="text-xl font-bold text-sat-accent mb-3 text-center flex items-center justify-center gap-2">
-                                 <RobotIcon className="h-6 w-6" />
-                                 <h4>New Discoveries!</h4>
+                             <div className="text-lg font-bold text-sat-accent mb-3 flex items-center gap-2">
+                                 <RobotIcon className="h-5 w-5" />
+                                 <h4>New Discoveries (Requires AI Analysis)</h4>
                              </div>
                              <div className="space-y-4">
                                 {newDiscoveries.map((discovery, index) => {
