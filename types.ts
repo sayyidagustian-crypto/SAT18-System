@@ -1,18 +1,17 @@
-
-export interface Content {
-    type: 'list' | 'code';
-    items: string[];
+// FIX: Add a shared type definition for analysis results.
+export interface AnalysisResult {
+  match: string;
+  solution: string;
+  framework: string;
 }
 
-export interface Section {
-    emoji: string;
-    title: string;
-    description: string;
-    content: Content;
+export interface FrameworkError {
+  error: string;
+  solution: string;
 }
 
-export interface Principle {
-    emoji: string;
-    title: string;
-    description: string;
+export interface KnowledgeBaseEntry {
+  framework: string;
+  icon?: React.ComponentType<{ className?: string }>;
+  errors: FrameworkError[];
 }

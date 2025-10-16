@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -32,6 +31,15 @@
   }
 }
 </script>
+<style>
+@keyframes highlight-fade {
+  from { background-color: rgba(56, 189, 248, 0.3); } /* sat-accent with transparency */
+  to { background-color: transparent; }
+}
+.highlight-new {
+  animation: highlight-fade 2s ease-out forwards;
+}
+</style>
 </head>
 <body class="bg-sat-blue text-sat-white">
     <div id="root"></div>
