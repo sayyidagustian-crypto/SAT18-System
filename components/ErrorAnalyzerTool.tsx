@@ -4,8 +4,9 @@ import { generateFixScriptWithGemini } from '../services/geminiService';
 import type { AnalysisResult, KnowledgeBaseEntry, RepairHistoryEntry } from '../types';
 import { isKnownError } from '../utils/knowledgeUtils';
 import { isRiskyScript, getConfidenceDetails } from '../utils/scriptUtils';
+import { fuzzyMatch } from '../utils/fuzzyMatch';
 import { CodeBlock } from './CodeBlock';
-import { RobotIcon } from './CustomIcons';
+import { RobotIcon, SearchIcon } from './CustomIcons';
 
 
 interface ErrorAnalyzerToolProps {
@@ -113,9 +114,9 @@ export const ErrorAnalyzerTool: React.FC<ErrorAnalyzerToolProps> = ({ knowledgeB
     };
 
     const renderFixSuggestion = (result: AnalysisResult) => {
-        const provenFix = repairHistory.find(h => h.match === result.match && h.status === 'success');
-
-        if (provenFix) {
+        // 1. Check for an exact proven fix
+        const exactProvenFix = repairHistory.find(h => h.match === result.match && h.status === 'success');
+        if (exactProvenFix) {
             const confidenceDetails = getConfidenceDetails(result.match, repairHistory);
             return (
                 <div className="mt-3">
@@ -124,17 +125,54 @@ export const ErrorAnalyzerTool: React.FC<ErrorAnalyzerToolProps> = ({ knowledgeB
                         Proven Fix from Your History
                     </p>
                     <CodeBlock 
-                        script={provenFix.script} 
-                        isRisky={isRiskyScript(provenFix.script)}
+                        script={exactProvenFix.script} 
+                        isRisky={isRiskyScript(exactProvenFix.script)}
                         confidenceDetails={confidenceDetails}
                     />
                 </div>
             );
         }
+
+        // 2. If no exact fix, try a fuzzy search
+        const FUZZY_MATCH_THRESHOLD = 0.6;
+        const potentialFuzzyMatches = repairHistory
+            .map(h => ({ ...h, similarity: fuzzyMatch(result.match, h.match) }))
+            .filter(h => h.similarity >= FUZZY_MATCH_THRESHOLD && h.match !== result.match)
+            .sort((a, b) => b.similarity - a.similarity);
+
+        let bestFuzzyFix = null;
+        for (const potentialFix of potentialFuzzyMatches) {
+            const confidence = getConfidenceDetails(potentialFix.match, repairHistory);
+            if (confidence.level === 'high' || confidence.level === 'medium') {
+                bestFuzzyFix = potentialFix;
+                break;
+            }
+        }
+
+        if (bestFuzzyFix) {
+            const confidenceDetails = getConfidenceDetails(bestFuzzyFix.match, repairHistory);
+            return (
+                 <div className="mt-3 p-3 bg-sky-900/30 rounded-lg border border-sky-500/40 animate-fade-in" title={`Original error: "${bestFuzzyFix.match}" (Similarity: ${Math.round(bestFuzzyFix.similarity * 100)}%)`}>
+                    <p className="text-sm font-semibold text-sky-300 flex items-center gap-2 mb-1">
+                        <SearchIcon className="h-5 w-5" />
+                        Similar Fix from Your History
+                    </p>
+                    <CodeBlock 
+                        script={bestFuzzyFix.script} 
+                        isRisky={isRiskyScript(bestFuzzyFix.script)}
+                        confidenceDetails={confidenceDetails}
+                    />
+                </div>
+            )
+        }
+
+        // 3. If no exact or fuzzy fix, check for a newly generated script
         if (fixScripts[result.match]) {
             const script = fixScripts[result.match];
             return <CodeBlock script={script} isRisky={isRiskyScript(script)} />;
         }
+
+        // 4. Fallback to the generate button
         return (
             <button 
                 onClick={() => handleGenerateFixScript(result)}

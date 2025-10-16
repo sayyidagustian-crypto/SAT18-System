@@ -1,7 +1,7 @@
 import React from 'react';
 import type { RepairHistoryEntry, RepairScriptStatus } from '../types';
 import { CodeBlock } from './CodeBlock';
-import { isRiskyScript } from '../utils/scriptUtils';
+import { isRiskyScript, getConfidenceDetails } from '../utils/scriptUtils';
 
 interface RepairHistoryProps {
     history: RepairHistoryEntry[];
@@ -10,90 +10,77 @@ interface RepairHistoryProps {
 }
 
 const ThumbsUpIcon: React.FC<{className?: string}> = ({ className }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
-        <path d="M23,10C23,8.9,22.1,8,21,8H14.68L15.64,3.43C15.66,3.33,15.67,3.22,15.67,3.11C15.67,2.7,15.5,2.32,15.23,2.05L14.17,1L7.59,7.58C7.22,7.95,7,8.45,7,9V19A2,2,0,0,0,9,21H18C18.83,21,19.54,20.5,19.84,19.78L22.86,12.73C22.95,12.5,23,12.26,23,12V10Z"/>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className ?? "w-5 h-5"}>
+      <path d="M1 8.25a1.25 1.25 0 112.5 0v7.5a1.25 1.25 0 11-2.5 0v-7.5zM11 3V1.7c0-.268.14-.526.395-.607A2 2 0 0114 3c0 .995-.182 1.948-.514 2.826-.204.54.166 1.174.744 1.174h2.52c1.243 0 2.261 1.01 2.146 2.247a23.864 23.864 0 01-1.341 5.974C17.153 16.323 16.072 17 14.9 17h-3.192a3 3 0 01-1.341-.317l-2.734-1.367a3 3 0 00-1.341-.317H4.25a1.25 1.25 0 01-1.25-1.25v-7.5a1.25 1.25 0 011.25-1.25h2.5a3 3 0 001.341-.317l2.734-1.367A3 3 0 0111 3z" />
     </svg>
 );
 
 const ThumbsDownIcon: React.FC<{className?: string}> = ({ className }) => (
-     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
-        <path d="M1,14A2,2,0,0,1,3,12H9.32L8.36,17.57C8.34,17.67,8.33,17.78,8.33,17.89C8.33,18.3,8.5,18.68,8.77,18.95L9.83,20L16.41,13.42C16.78,13.05,17,12.55,17,12V2A2,2,0,0,0,15,0H6C5.17,0,4.46,0.5,4.16,1.22L1.14,8.27C1.05,8.5,1,8.74,1,9V11C1,12.1,1.9,13,3,13H3.05L1,14Z"/>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className ?? "w-5 h-5"}>
+      <path d="M1 11.75a1.25 1.25 0 102.5 0v-7.5a1.25 1.25 0 10-2.5 0v7.5zM11 17V18.3c0 .268.14.526.395.607A2 2 0 0014 17c0-.995-.182-1.948-.514-2.826-.204-.54.166-1.174.744-1.174h2.52c1.243 0 2.261-1.01 2.146-2.247a23.864 23.864 0 00-1.341-5.974C17.153 3.677 16.072 3 14.9 3h-3.192a3 3 0 00-1.341.317l-2.734 1.367a3 3 0 01-1.341.317H4.25a1.25 1.25 0 00-1.25 1.25v7.5a1.25 1.25 0 001.25 1.25h2.5a3 3 0 011.341.317l2.734 1.367A3 3 0 0011 17z" />
+    </svg>
+);
+
+const TrashIcon: React.FC<{className?: string}> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className ?? "w-5 h-5"}>
+        <path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.58.22-2.365.468a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193v-.443A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clipRule="evenodd" />
     </svg>
 );
 
 export const RepairHistory: React.FC<RepairHistoryProps> = ({ history, onClearHistory, onUpdateStatus }) => {
-    
+
     if (history.length === 0) {
-        return (
-            <div className="text-center p-4 text-sat-lightgray rounded-lg bg-sat-blue">
-                <p>No repair scripts have been generated yet. Your history will appear here.</p>
-            </div>
-        );
+        return <p className="text-center text-sat-lightgray">No repair scripts have been generated yet.</p>;
     }
 
-    const formatTimestamp = (timestamp: number) => {
-        const now = new Date();
-        const past = new Date(timestamp);
-        const diffSeconds = Math.floor((now.getTime() - past.getTime()) / 1000);
-
-        if (diffSeconds < 60) return `${diffSeconds}s ago`;
-        const diffMinutes = Math.floor(diffSeconds / 60);
-        if (diffMinutes < 60) return `${diffMinutes}m ago`;
-        const diffHours = Math.floor(diffMinutes / 60);
-        if (diffHours < 24) return `${diffHours}h ago`;
-        return past.toLocaleDateString();
-    };
-
-    const getStatusBorderColor = (status: RepairScriptStatus) => {
-        switch(status) {
-            case 'success': return 'border-green-500/60';
-            case 'failed': return 'border-red-500/60';
-            default: return 'border-sat-gray/50';
-        }
-    };
-
     return (
-        <div>
-            {history.map((item) => (
-                <div key={item.timestamp} className={`bg-sat-blue p-4 rounded-lg border mb-3 animate-fade-in transition-colors ${getStatusBorderColor(item.status)}`}>
-                    <div className="flex justify-between items-center mb-2">
-                        <p className="font-mono text-red-400 text-sm">
-                            For Error: <span className="font-semibold">{item.match}</span>
-                        </p>
-                        <p className="text-xs text-sat-lightgray">{formatTimestamp(item.timestamp)}</p>
-                    </div>
-                    <div className="flex items-end gap-2">
-                        <div className="flex-grow">
-                            <CodeBlock script={item.script} isRisky={isRiskyScript(item.script)} />
+        <div className="space-y-4">
+            <div className="text-right">
+                <button 
+                    onClick={onClearHistory}
+                    className="inline-flex items-center gap-2 px-3 py-1 text-xs bg-red-800/50 text-red-300 font-semibold rounded-md hover:bg-red-800/80 transition-colors"
+                >
+                    <TrashIcon className="h-4 w-4" />
+                    Clear History
+                </button>
+            </div>
+            {history.map(entry => (
+                <div key={entry.timestamp} className="bg-sat-blue p-4 rounded-lg border border-sat-gray/50 animate-fade-in">
+                    <div className="flex justify-between items-start mb-2">
+                        <div>
+                             <p className="font-mono text-sm text-red-400">
+                                <span className="font-bold text-sat-lightgray">Error:</span> {entry.match}
+                            </p>
+                            <p className="text-xs text-sat-gray">
+                                {new Date(entry.timestamp).toLocaleString()}
+                            </p>
                         </div>
-                        <div className="flex flex-col gap-2">
-                            <button
-                                onClick={() => onUpdateStatus(item.timestamp, 'success')}
-                                className={`p-2 rounded-md transition-colors ${item.status === 'success' ? 'bg-green-500/30 text-green-400' : 'bg-sat-gray/50 text-sat-lightgray hover:bg-green-500/20 hover:text-green-400'}`}
+                        <div className="flex items-center gap-2 shrink-0 ml-4">
+                            <button 
+                                onClick={() => onUpdateStatus(entry.timestamp, 'success')}
+                                className={`p-1.5 rounded-full transition-colors ${entry.status === 'success' ? 'bg-green-500/80 text-white' : 'bg-sat-gray text-sat-lightgray hover:bg-green-500/60'}`}
                                 aria-label="Mark as successful"
+                                title="Mark as successful"
                             >
                                 <ThumbsUpIcon className="h-4 w-4" />
                             </button>
-                            <button
-                                onClick={() => onUpdateStatus(item.timestamp, 'failed')}
-                                 className={`p-2 rounded-md transition-colors ${item.status === 'failed' ? 'bg-red-500/30 text-red-400' : 'bg-sat-gray/50 text-sat-lightgray hover:bg-red-500/20 hover:text-red-400'}`}
+                             <button 
+                                onClick={() => onUpdateStatus(entry.timestamp, 'failed')}
+                                className={`p-1.5 rounded-full transition-colors ${entry.status === 'failed' ? 'bg-red-500/80 text-white' : 'bg-sat-gray text-sat-lightgray hover:bg-red-500/60'}`}
                                 aria-label="Mark as failed"
+                                title="Mark as failed"
                             >
                                 <ThumbsDownIcon className="h-4 w-4" />
                             </button>
                         </div>
                     </div>
+                    <CodeBlock 
+                        script={entry.script} 
+                        isRisky={isRiskyScript(entry.script)} 
+                        confidenceDetails={getConfidenceDetails(entry.match, history)}
+                    />
                 </div>
             ))}
-
-            <div className="text-center mt-4">
-                <button 
-                    onClick={onClearHistory}
-                    className="px-4 py-1 text-sm text-sat-lightgray hover:text-red-400 hover:bg-red-900/30 rounded-md transition-colors"
-                >
-                    Clear History
-                </button>
-            </div>
         </div>
     );
 };

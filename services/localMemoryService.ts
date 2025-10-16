@@ -1,4 +1,4 @@
-import type { AnalysisResult, KnowledgeBaseEntry, FrameworkError, RepairHistoryEntry, RepairScriptStatus } from '../types';
+import type { AnalysisResult, KnowledgeBaseEntry, FrameworkError, RepairHistoryEntry, RepairScriptStatus, MemoryExport } from '../types';
 
 const KNOWLEDGE_KEY = 'sat18-learned-knowledge';
 const HISTORY_KEY = 'sat18-repair-history';
@@ -99,5 +99,41 @@ export function clearRepairHistory(): void {
         localStorage.removeItem(HISTORY_KEY);
     } catch (error) {
         console.error("Failed to clear repair history from localStorage:", error);
+    }
+}
+
+// --- Collaborative Sharing Management ---
+
+export function exportMemory(): string {
+    const learnedKnowledge = getLearnedKnowledge();
+    const repairHistory = getRepairHistory();
+    
+    const exportData: MemoryExport = {
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        data: {
+            learnedKnowledge,
+            repairHistory
+        }
+    };
+    
+    return JSON.stringify(exportData, null, 2);
+}
+
+export function importMemory(jsonString: string): { success: boolean, error?: string } {
+    try {
+        const parsed: MemoryExport = JSON.parse(jsonString);
+
+        if (parsed.version === 1 && parsed.data && Array.isArray(parsed.data.learnedKnowledge) && Array.isArray(parsed.data.repairHistory)) {
+            // Data structure seems valid, save it
+            saveLearnedKnowledge(parsed.data.learnedKnowledge);
+            saveRepairHistory(parsed.data.repairHistory);
+            return { success: true };
+        } else {
+            return { success: false, error: 'Invalid or corrupted file format.' };
+        }
+    } catch (e) {
+        console.error("Failed to import memory:", e);
+        return { success: false, error: 'File is not a valid JSON.' };
     }
 }

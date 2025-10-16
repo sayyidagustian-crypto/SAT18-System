@@ -1,4 +1,5 @@
 import React from 'react';
+import { ShareIcon } from './CustomIcons';
 
 const CheckIcon: React.FC<{ className?: string }> = ({ className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className ?? "w-5 h-5"}>
@@ -18,14 +19,24 @@ const ChartBarIcon: React.FC<{ className?: string }> = ({ className }) => (
   </svg>
 );
 
+const LightBulbIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className ?? "w-5 h-5"}>
+        <path d="M10 2a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0v-1.5A.75.75 0 0110 2zM10 15a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0v-1.5A.75.75 0 0110 15zM10 7a3 3 0 100 6 3 3 0 000-6z" />
+        <path fillRule="evenodd" d="M12.5 5.25a.75.75 0 00-1.06-.03L9.12 7.53a.75.75 0 001.06 1.06l2.32-2.32a.75.75 0 00-.03-1.06zM7.53 9.12a.75.75 0 00-1.06-1.06L4.15 10.38a.75.75 0 101.06 1.06l2.32-2.32zM10.38 4.15a.75.75 0 00-1.06 1.06l2.32 2.32a.75.75 0 101.06-1.06L10.38 4.15zM14.25 12.5a.75.75 0 001.06.03l2.32-2.32a.75.75 0 00-1.06-1.06l-2.32 2.32a.75.75 0 00.03 1.06zM3.5 10a.75.75 0 01.75-.75h1.5a.75.75 0 010 1.5h-1.5a.75.75 0 01-.75-.75zM14.25 10a.75.75 0 01.75-.75h1.5a.75.75 0 010 1.5h-1.5a.75.75 0 01-.75-.75z" clipRule="evenodd" />
+    </svg>
+);
+
+
 
 const roadmapStages = [
     { id: 1, title: 'Analisis Awal', description: 'Memahami log error, memberikan saran perbaikan dasar.', icon: CheckIcon, status: 'completed' },
     { id: 2, title: 'Memori & Sejarah', description: 'Mengingat skrip perbaikan yang pernah dibuat dan hasilnya.', icon: CheckIcon, status: 'completed' },
     { id: 3, title: 'Peringatan & Keamanan', description: 'Mengidentifikasi skrip berisiko dan meminta konfirmasi pengguna.', icon: CheckIcon, status: 'completed' },
     { id: 4, title: 'Kebijaksanaan & Statistik', description: 'Menampilkan tingkat kepercayaan berdasarkan data keberhasilan nyata.', icon: CheckIcon, status: 'completed' },
-    { id: 5, title: 'Kecerdasan Kontekstual', description: 'Mengenali variasi error serupa (Fuzzy Matching).', icon: SparklesIcon, status: 'current' },
-    { id: 6, title: 'Wawasan Visual', description: 'Menyajikan data riwayat dalam bentuk grafik dan tren (Visual Analytics).', icon: ChartBarIcon, status: 'upcoming' },
+    { id: 5, title: 'Kecerdasan Kontekstual', description: 'Mengenali variasi error serupa (Fuzzy Matching).', icon: CheckIcon, status: 'completed' },
+    { id: 6, title: 'Wawasan Visual', description: 'Menyajikan data riwayat dalam bentuk grafik dan tren.', icon: CheckIcon, status: 'completed' },
+    { id: 7, title: 'Berbagi Kolaboratif', description: 'Memungkinkan ekspor/impor memori untuk dibagikan antar tim.', icon: SparklesIcon, status: 'current' },
+    { id: 8, title: 'Wawasan Prediktif', description: 'Memprediksi kemungkinan keberhasilan berdasarkan konteks.', icon: LightBulbIcon, status: 'upcoming' },
 ];
 
 export const ProgressTracker: React.FC = () => {

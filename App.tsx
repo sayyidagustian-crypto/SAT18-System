@@ -4,10 +4,11 @@ import { KnowledgeBase } from './components/KnowledgeBase';
 import { RepairHistory } from './components/RepairHistory';
 import { ProgressTracker } from './components/ProgressTracker';
 import { SectionCard } from './components/SectionCard';
+import { CollaborativeSharing } from './components/CollaborativeSharing';
 import { KNOWLEDGE_BASE_DATA } from './constants';
 import { getLearnedKnowledge, addResultToKnowledge, getRepairHistory, addScriptToHistory, clearRepairHistory, updateScriptStatus } from './services/localMemoryService';
 import type { AnalysisResult, KnowledgeBaseEntry, RepairHistoryEntry, RepairScriptStatus } from './types';
-import { RobotIcon, HistoryIcon, BrainIcon, RoadmapIcon } from './components/CustomIcons';
+import { RobotIcon, HistoryIcon, BrainIcon, RoadmapIcon, ShareIcon } from './components/CustomIcons';
 
 const App: React.FC = () => {
     const [learnedKnowledge, setLearnedKnowledge] = useState<KnowledgeBaseEntry[]>([]);
@@ -51,6 +52,12 @@ const App: React.FC = () => {
         clearRepairHistory();
         refreshRepairHistory();
     };
+
+    const handleMemoryImport = () => {
+        // After import, both knowledge and history have changed. Refresh them.
+        refreshLearnedKnowledge();
+        refreshRepairHistory();
+    };
     
     const allKnowledge = [...KNOWLEDGE_BASE_DATA, ...learnedKnowledge];
 
@@ -76,6 +83,10 @@ const App: React.FC = () => {
                         onAddToKnowledgeBase={handleAddToKnowledgeBase}
                         onAddScriptToHistory={handleAddScriptToHistory}
                     />
+                </SectionCard>
+                
+                <SectionCard title="Collaborative Sharing" icon={ShareIcon}>
+                    <CollaborativeSharing onImportSuccess={handleMemoryImport} />
                 </SectionCard>
 
                 <SectionCard title="Repair Script History" icon={HistoryIcon} startOpen={repairHistory.length > 0}>

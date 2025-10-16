@@ -1,4 +1,3 @@
-// FIX: Removed unused import to resolve module error. The `types.ts` file was empty.
 import type { KnowledgeBaseEntry } from './types';
 import { NodeIcon, ReactIcon, LaravelIcon, DockerIcon } from './components/FrameworkIcons';
 
