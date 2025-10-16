@@ -1,11 +1,13 @@
-import type { AnalysisResult, KnowledgeBaseEntry, FrameworkError } from '../types';
+import type { AnalysisResult, KnowledgeBaseEntry, FrameworkError, RepairHistoryEntry, RepairScriptStatus } from '../types';
 
-const LOCAL_STORAGE_KEY = 'sat18-learned-knowledge';
+const KNOWLEDGE_KEY = 'sat18-learned-knowledge';
+const HISTORY_KEY = 'sat18-repair-history';
 
-// Helper to get all learned knowledge from localStorage
+// --- Knowledge Base Management ---
+
 export function getLearnedKnowledge(): KnowledgeBaseEntry[] {
     try {
-        const data = localStorage.getItem(LOCAL_STORAGE_KEY);
+        const data = localStorage.getItem(KNOWLEDGE_KEY);
         return data ? JSON.parse(data) : [];
     } catch (error) {
         console.error("Failed to parse learned knowledge from localStorage:", error);
@@ -13,16 +15,14 @@ export function getLearnedKnowledge(): KnowledgeBaseEntry[] {
     }
 }
 
-// Helper to save the entire learned knowledge base to localStorage
 function saveLearnedKnowledge(knowledge: KnowledgeBaseEntry[]): void {
     try {
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(knowledge));
+        localStorage.setItem(KNOWLEDGE_KEY, JSON.stringify(knowledge));
     } catch (error) {
         console.error("Failed to save learned knowledge to localStorage:", error);
     }
 }
 
-// Adds a new analysis result to the learned knowledge
 export function addResultToKnowledge(result: AnalysisResult): void {
     const learnedKnowledge = getLearnedKnowledge();
     
@@ -36,7 +36,6 @@ export function addResultToKnowledge(result: AnalysisResult): void {
     );
 
     if (frameworkIndex > -1) {
-        // Framework exists, check if error already exists
         const frameworkEntry = learnedKnowledge[frameworkIndex];
         const errorExists = frameworkEntry.errors.some(
             err => err.error.toLowerCase() === newError.error.toLowerCase()
@@ -45,14 +44,60 @@ export function addResultToKnowledge(result: AnalysisResult): void {
             frameworkEntry.errors.push(newError);
         }
     } else {
-        // Framework doesn't exist, create a new entry
-        // We don't have icons for learned entries, so we omit it.
         learnedKnowledge.push({
             framework: result.framework,
             errors: [newError],
-            icon: () => null, // Learned items don't have a default icon
+            icon: () => null,
         });
     }
 
     saveLearnedKnowledge(learnedKnowledge);
+}
+
+// --- Repair History Management ---
+
+export function getRepairHistory(): RepairHistoryEntry[] {
+    try {
+        const data = localStorage.getItem(HISTORY_KEY);
+        // Returns sorted by most recent first
+        return data ? JSON.parse(data).sort((a: RepairHistoryEntry, b: RepairHistoryEntry) => b.timestamp - a.timestamp) : [];
+    } catch (error) {
+        console.error("Failed to parse repair history from localStorage:", error);
+        return [];
+    }
+}
+
+function saveRepairHistory(history: RepairHistoryEntry[]): void {
+    try {
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+    } catch (error) {
+        console.error("Failed to save repair history to localStorage:", error);
+    }
+}
+
+export function addScriptToHistory(entry: Omit<RepairHistoryEntry, 'timestamp' | 'status'>): void {
+    const history = getRepairHistory();
+    const newEntry: RepairHistoryEntry = { ...entry, timestamp: Date.now(), status: 'unknown' };
+    // Add to the beginning of the array
+    history.unshift(newEntry);
+    saveRepairHistory(history);
+}
+
+export function updateScriptStatus(timestamp: number, status: RepairScriptStatus): void {
+    const history = getRepairHistory();
+    const entryIndex = history.findIndex(item => item.timestamp === timestamp);
+    if (entryIndex > -1) {
+        // If the current status is the same as the new one, toggle it back to 'unknown'
+        history[entryIndex].status = history[entryIndex].status === status ? 'unknown' : status;
+        saveRepairHistory(history);
+    }
+}
+
+
+export function clearRepairHistory(): void {
+    try {
+        localStorage.removeItem(HISTORY_KEY);
+    } catch (error) {
+        console.error("Failed to clear repair history from localStorage:", error);
+    }
 }

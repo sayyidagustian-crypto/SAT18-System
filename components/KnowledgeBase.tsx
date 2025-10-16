@@ -29,7 +29,7 @@ const AccordionSection: React.FC<{ title: string; data: KnowledgeBaseEntry[]; st
     return (
         <>
             <h3 
-                className="text-2xl font-bold text-center text-sat-accent mb-4 cursor-pointer"
+                className="text-xl font-bold text-center text-sat-accent mb-4 cursor-pointer"
                 onClick={() => setIsOpen(!isOpen)}
             >
                 {title}
@@ -122,11 +122,7 @@ export const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ staticData, learne
     const isSearching = searchTerm.trim().length > 0;
 
     return (
-        <div className="bg-sat-lightblue p-6 sm:p-8 rounded-xl shadow-2xl border border-sat-gray w-full">
-            <h2 className="text-3xl font-bold text-center text-sat-white mb-4">
-                🧠 System Knowledge Base
-            </h2>
-
+        <div>
             <div className="mb-6 relative">
                 <input
                     type="text"

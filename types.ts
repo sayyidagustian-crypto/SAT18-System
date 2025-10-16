@@ -15,3 +15,21 @@ export interface KnowledgeBaseEntry {
   icon?: React.ComponentType<{ className?: string }>;
   errors: FrameworkError[];
 }
+
+export type RepairScriptStatus = 'success' | 'failed' | 'unknown';
+
+export interface RepairHistoryEntry {
+  match: string;
+  script: string;
+  timestamp: number;
+  status: RepairScriptStatus;
+}
+
+export type ConfidenceLevel = 'high' | 'medium' | 'low';
+
+export interface ConfidenceDetails {
+  level: ConfidenceLevel;
+  successCount: number;
+  failCount: number;
+  total: number;
+}

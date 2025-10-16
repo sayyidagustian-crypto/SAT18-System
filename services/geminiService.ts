@@ -72,3 +72,46 @@ If no errors are found, return an empty array.`;
         ];
     }
 }
+
+export async function generateFixScriptWithGemini(error: string, solution: string): Promise<string> {
+    const model = 'gemini-2.5-flash';
+    const prompt = `Based on the following error description and suggested solution, generate a single, concise, and safe-to-execute bash command to fix the issue.
+
+Error: "${error}"
+Solution: "${solution}"
+
+Instructions:
+- Return ONLY the shell command as plain text.
+- Do NOT include any explanations, markdown backticks (\`\`\`), or the word "bash".
+- If a single command is not appropriate or the solution is more complex, return a short bash comment starting with '#', like '# Manual fix required' or '# Multiple steps needed'.
+
+Example 1:
+Error: "Permission denied on storage/"
+Solution: "Ubah permission folder storage/ dan bootstrap/cache/ (e.g., chmod -R 775 storage)."
+Output: chmod -R 775 storage/ bootstrap/cache/
+
+Example 2:
+Error: "MODULE_NOT_FOUND"
+Solution: "Pastikan dependensi terinstall, jalankan \`npm install\`."
+Output: npm install
+
+Example 3:
+Error: "Hydration failed"
+Solution: "Periksa perbedaan antara hasil render di server dan client."
+Output: # Manual code inspection required.
+
+Now, generate the command for the provided error and solution.`;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: model,
+            contents: prompt,
+        });
+        
+        // The response text is expected to be the raw command
+        return response.text.trim();
+    } catch (e) {
+        console.error("Error generating fix script with Gemini API:", e);
+        return "# Error generating script via AI.";
+    }
+}

@@ -1,23 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { analyzeLog } from '../services/analyzerService';
-import type { AnalysisResult, KnowledgeBaseEntry } from '../types';
+import { generateFixScriptWithGemini } from '../services/geminiService';
+import type { AnalysisResult, KnowledgeBaseEntry, RepairHistoryEntry } from '../types';
 import { isKnownError } from '../utils/knowledgeUtils';
+import { isRiskyScript, getConfidenceDetails } from '../utils/scriptUtils';
+import { CodeBlock } from './CodeBlock';
+import { RobotIcon } from './CustomIcons';
+
 
 interface ErrorAnalyzerToolProps {
     knowledgeBase: KnowledgeBaseEntry[];
+    repairHistory: RepairHistoryEntry[];
     onAddToKnowledgeBase: (result: AnalysisResult) => void;
+    onAddScriptToHistory: (entry: Omit<RepairHistoryEntry, 'timestamp' | 'status'>) => void;
 }
 
-const RobotIcon: React.FC<{className?: string}> = ({ className }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
-        <path d="M12,2A2,2,0,0,0,10,4V6H4A2,2,0,0,0,2,8V14H4V20A2,2,0,0,0,6,22H18A2,2,0,0,0,20,20V14H22V8A2,2,0,0,0,20,6H14V4A2,2,0,0,0,12,2ZM8,14V18H6V14ZM18,18H16V14H18Z" />
-        <circle cx="8.5" cy="11.5" r="1.5" />
-        <circle cx="15.5" cy="11.5" r="1.5" />
+const ProvenFixIcon: React.FC<{className?: string}> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}>
+        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
     </svg>
 );
 
 
-export const ErrorAnalyzerTool: React.FC<ErrorAnalyzerToolProps> = ({ knowledgeBase, onAddToKnowledgeBase }) => {
+export const ErrorAnalyzerTool: React.FC<ErrorAnalyzerToolProps> = ({ knowledgeBase, repairHistory, onAddToKnowledgeBase, onAddScriptToHistory }) => {
     const [logContent, setLogContent] = useState('');
     const [analysisResult, setAnalysisResult] = useState<AnalysisResult[] | null>(null);
     const [newDiscoveries, setNewDiscoveries] = useState<AnalysisResult[]>([]);
@@ -26,18 +31,15 @@ export const ErrorAnalyzerTool: React.FC<ErrorAnalyzerToolProps> = ({ knowledgeB
     const [error, setError] = useState<string | null>(null);
     const [addedItems, setAddedItems] = useState<Set<string>>(new Set());
     const [fadingOutItems, setFadingOutItems] = useState<Set<string>>(new Set());
+    const [fixScripts, setFixScripts] = useState<Record<string, string>>({});
+    const [generatingScriptFor, setGeneratingScriptFor] = useState<Set<string>>(new Set());
 
 
     useEffect(() => {
-        // Reset discoveries when knowledge base is updated (after adding an item)
-        // This will run after an item has been successfully added and faded out.
         const updatedDiscoveries = newDiscoveries.filter(d => !isKnownError(d, knowledgeBase));
-        
-        // Only update state if the list has actually changed to prevent infinite loops
         if (updatedDiscoveries.length !== newDiscoveries.length) {
              setNewDiscoveries(updatedDiscoveries);
         }
-        // We only want this to run when the knowledgebase changes.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [knowledgeBase]);
 
@@ -50,9 +52,12 @@ export const ErrorAnalyzerTool: React.FC<ErrorAnalyzerToolProps> = ({ knowledgeB
         setNewDiscoveries([]);
         setAddedItems(new Set());
         setFadingOutItems(new Set());
+        setFixScripts({});
+        setGeneratingScriptFor(new Set());
 
         try {
             const results = await analyzeLog(logContent);
+
             const knownResults = results.filter(r => isKnownError(r, knowledgeBase));
             const unknownResults = results.filter(r => !isKnownError(r, knowledgeBase));
             
@@ -62,8 +67,6 @@ export const ErrorAnalyzerTool: React.FC<ErrorAnalyzerToolProps> = ({ knowledgeB
         } catch (e) {
             console.error(e);
             setError("An unexpected error occurred. Please try again.");
-            setAnalysisResult(null);
-            setNewDiscoveries([]);
         } finally {
             setIsLoading(false);
         }
@@ -73,10 +76,29 @@ export const ErrorAnalyzerTool: React.FC<ErrorAnalyzerToolProps> = ({ knowledgeB
         setAddedItems(prev => new Set(prev).add(discovery.match));
         setFadingOutItems(prev => new Set(prev).add(discovery.match));
         
-        // Wait for the fade-out animation to complete before updating the state
         setTimeout(() => {
             onAddToKnowledgeBase(discovery);
-        }, 500); // This duration should match the CSS transition duration
+        }, 500); 
+    };
+
+     const handleGenerateFixScript = async (result: AnalysisResult) => {
+        setGeneratingScriptFor(prev => new Set(prev).add(result.match));
+        try {
+            const script = await generateFixScriptWithGemini(result.match, result.solution);
+            setFixScripts(prev => ({...prev, [result.match]: script}));
+            if (!script.trim().startsWith('#')) {
+                onAddScriptToHistory({ match: result.match, script });
+            }
+        } catch (e) {
+            console.error("Failed to generate script:", e);
+            setFixScripts(prev => ({...prev, [result.match]: "# Failed to generate script."}));
+        } finally {
+            setGeneratingScriptFor(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(result.match);
+                return newSet;
+            });
+        }
     };
 
     const getFrameworkChipColor = (framework: string) => {
@@ -90,8 +112,42 @@ export const ErrorAnalyzerTool: React.FC<ErrorAnalyzerToolProps> = ({ knowledgeB
         }
     };
 
+    const renderFixSuggestion = (result: AnalysisResult) => {
+        const provenFix = repairHistory.find(h => h.match === result.match && h.status === 'success');
+
+        if (provenFix) {
+            const confidenceDetails = getConfidenceDetails(result.match, repairHistory);
+            return (
+                <div className="mt-3">
+                    <p className="text-sm font-semibold text-green-400 flex items-center gap-2 mb-1">
+                        <ProvenFixIcon className="h-5 w-5" />
+                        Proven Fix from Your History
+                    </p>
+                    <CodeBlock 
+                        script={provenFix.script} 
+                        isRisky={isRiskyScript(provenFix.script)}
+                        confidenceDetails={confidenceDetails}
+                    />
+                </div>
+            );
+        }
+        if (fixScripts[result.match]) {
+            const script = fixScripts[result.match];
+            return <CodeBlock script={script} isRisky={isRiskyScript(script)} />;
+        }
+        return (
+            <button 
+                onClick={() => handleGenerateFixScript(result)}
+                disabled={generatingScriptFor.has(result.match)}
+                className="mt-3 px-4 py-1 text-sm bg-sat-accent/20 text-sat-accent font-semibold rounded-md hover:bg-sat-accent/40 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+            >
+                {generatingScriptFor.has(result.match) ? 'Generating...' : 'Generate Fix Script'}
+            </button>
+        );
+    };
+
     return (
-        <div className="bg-sat-lightblue p-6 sm:p-8 rounded-xl shadow-2xl border border-sat-gray w-full">
+        <div>
             <label htmlFor="log-input" className="block text-lg font-semibold text-sat-white mb-2">
                 Paste your build log here:
             </label>
@@ -122,7 +178,7 @@ export const ErrorAnalyzerTool: React.FC<ErrorAnalyzerToolProps> = ({ knowledgeB
 
             {analyzed && !isLoading && (
                  <div className="mt-8 pt-6 border-t border-sat-gray">
-                    <h3 className="text-2xl font-bold text-sat-white mb-4 text-center">Analysis Results</h3>
+                    <h3 className="text-xl font-bold text-sat-white mb-4 text-center">Analysis Results</h3>
                     {error && (
                         <div className="text-center p-4 bg-red-900/50 text-red-300 rounded-lg">
                             <p className="font-semibold">{error}</p>
@@ -132,7 +188,7 @@ export const ErrorAnalyzerTool: React.FC<ErrorAnalyzerToolProps> = ({ knowledgeB
                     {analysisResult && analysisResult.length > 0 && (
                         <div className="space-y-4">
                             {analysisResult.map((result, index) => (
-                                <div key={index} className="bg-sat-blue p-4 rounded-lg border border-sat-gray/50">
+                                <div key={index} className="bg-sat-blue p-4 rounded-lg border border-sat-gray/50 animate-fade-in">
                                     <div className="flex justify-between items-center mb-2">
                                         <p className="font-mono text-red-400 text-sm">
                                             <span className="font-bold">Pattern Matched:</span> {result.match}
@@ -145,6 +201,7 @@ export const ErrorAnalyzerTool: React.FC<ErrorAnalyzerToolProps> = ({ knowledgeB
                                         <span className="text-sat-accent font-semibold mr-2">💡 Suggestion:</span>
                                         {result.solution}
                                     </p>
+                                    {renderFixSuggestion(result)}
                                 </div>
                             ))}
                         </div>
@@ -177,10 +234,13 @@ export const ErrorAnalyzerTool: React.FC<ErrorAnalyzerToolProps> = ({ knowledgeB
                                                 <span className="text-yellow-300 font-semibold mr-2">🤖 AI Suggestion:</span>
                                                 {discovery.solution}
                                             </p>
+                                            
+                                            {renderFixSuggestion(discovery)}
+                                            
                                             <button 
                                                 onClick={() => handleAddDiscovery(discovery)}
                                                 disabled={isAdded || isFadingOut}
-                                                className="px-4 py-1 text-sm bg-sat-accent/20 text-sat-accent font-semibold rounded-md hover:bg-sat-accent/40 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                                                className="mt-3 ml-2 px-4 py-1 text-sm bg-sat-accent/20 text-sat-accent font-semibold rounded-md hover:bg-sat-accent/40 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
                                             >
                                                 {isAdded ? '✔ Added' : 'Add to Knowledge Base'}
                                             </button>
