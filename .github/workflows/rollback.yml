@@ -1,0 +1,42 @@
+name: SAT18 Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      snapshot_name:
+        description: "Nama snapshot (opsional). Kosongkan untuk pakai snapshot terbaru."
+        required: false
+        default: ""
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Rollback on VPS
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          script: |
+            set -e
+            REMOTE_DIR=~/sat18-deploy
+            SNAP_INPUT="${{ github.event.inputs.snapshot_name }}"
+            cd $REMOTE_DIR
+            pm2 stop sat18-proxy || true
+            if [ -z "$SNAP_INPUT" ]; then
+              SNAP=$(ls -t snapshots | head -n 1)
+            else
+              SNAP="$SNAP_INPUT"
+            fi
+            if [ -z "$SNAP" ]; then
+              echo "Tidak ada snapshot ditemukan."; exit 1
+            fi
+            echo "Rollback ke snapshot: $SNAP"
+            rm -rf current/*
+            tar -xzf snapshots/$SNAP -C current
+            pm2 start server/ecosystem.config.js --only sat18-proxy || true
+            pm2 restart sat18-proxy || pm2 start server/ecosystem.config.js --only sat18-proxy
+            pm2 save
+            echo "Rollback selesai."
