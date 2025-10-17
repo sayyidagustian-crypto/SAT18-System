@@ -37,7 +37,7 @@ jobs:
           mkdir -p artifacts
           tar -czf artifacts/sat18-dist.tar.gz -C dist .
 
-      - name: Prepare Dirs & Snapshot on VPS
+      - name: Upload artifacts to VPS (create dirs & snapshot old)
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: \${{ secrets.VPS_HOST }}
@@ -47,14 +47,15 @@ jobs:
           script: |
             set -e
             REMOTE_DIR=~/sat18-deploy
-            mkdir -p $REMOTE_DIR/snapshots $REMOTE_DIR/current
+            mkdir -p $REMOTE_DIR/snapshots
+            mkdir -p $REMOTE_DIR/current
             if [ -n "$(ls -A $REMOTE_DIR/current 2>/dev/null)" ]; then
               TS=$(date +"%Y%m%d-%H%M%S")
               tar -czf $REMOTE_DIR/snapshots/snapshot-$TS.tar.gz -C $REMOTE_DIR/current .
-              echo "Snapshot created: snapshot-$TS.tar.gz"
+              echo "Snapshot dibuat: snapshot-$TS.tar.gz"
             fi
 
-      - name: Transfer new build
+      - name: Transfer new dist tarball
         uses: appleboy/scp-action@v0.1.7
         with:
           host: \${{ secrets.VPS_HOST }}
@@ -64,7 +65,7 @@ jobs:
           source: "artifacts/sat18-dist.tar.gz"
           target: "~/sat18-deploy/"
 
-      - name: Unpack & Restart PM2
+      - name: Unpack dist & restart pm2
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: \${{ secrets.VPS_HOST }}
@@ -78,9 +79,10 @@ jobs:
             rm -rf current/*
             tar -xzf sat18-dist.tar.gz -C current
             rm -f sat18-dist.tar.gz
+            pm2 start server/ecosystem.config.js --only sat18-proxy || true
             pm2 restart sat18-proxy || pm2 start server/ecosystem.config.js --only sat18-proxy
             pm2 save
-            echo "Deploy successful."`;
+            echo "Deploy selesai."`;
 
     const rollbackYml = `name: SAT18 Rollback
 
@@ -88,7 +90,7 @@ on:
   workflow_dispatch:
     inputs:
       snapshot_name:
-        description: "Snapshot name (optional). Leave empty for latest."
+        description: "Nama snapshot (opsional). Kosongkan untuk pakai snapshot terbaru."
         required: false
         default: ""
 
@@ -108,25 +110,22 @@ jobs:
             REMOTE_DIR=~/sat18-deploy
             SNAP_INPUT="\${{ github.event.inputs.snapshot_name }}"
             cd $REMOTE_DIR
-            
+            pm2 stop sat18-proxy || true
             if [ -z "$SNAP_INPUT" ]; then
               SNAP=$(ls -t snapshots | head -n 1)
             else
               SNAP="$SNAP_INPUT"
             fi
-
             if [ -z "$SNAP" ]; then
-              echo "ERROR: No snapshot found."
-              exit 1
+              echo "Tidak ada snapshot ditemukan."; exit 1
             fi
-
-            echo "Rolling back to snapshot: $SNAP"
-            pm2 stop sat18-proxy || true
+            echo "Rollback ke snapshot: $SNAP"
             rm -rf current/*
             tar -xzf snapshots/$SNAP -C current
+            pm2 start server/ecosystem.config.js --only sat18-proxy || true
             pm2 restart sat18-proxy || pm2 start server/ecosystem.config.js --only sat18-proxy
             pm2 save
-            echo "Rollback successful."`;
+            echo "Rollback selesai."`;
 
     const serverJs = `// server/server.js
 import express from "express";
@@ -135,7 +134,7 @@ import path from "path";
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Serve the static files from the 'current' directory
+// Serve the static files from the 'current' directory, which is one level up
 const staticPath = path.resolve(process.cwd(), "../current");
 app.use(express.static(staticPath));
 
@@ -174,7 +173,7 @@ module.exports = {
 }
 
 server {
-    listen 443 ssl;
+    listen 443 ssl http2;
     server_name sat18.site www.sat18.site;
 
     # SSL Certs managed by Certbot
@@ -224,7 +223,7 @@ server {
             <div className="pt-4 border-t border-sat-gray/50">
                  <h3 className="text-xl font-bold text-sat-accent mb-2">3. Konfigurasi Server di VPS</h3>
                  <p className="text-sm mb-2">File-file ini harus ada di repositori Anda agar PM2 dapat menjalankannya di VPS. Mereka bertanggung jawab untuk menyajikan file statis aplikasi.</p>
-                 <h4 className="text-lg font-semibold text-sat-white mt-4">Proxy Server (`server/server.js`)</h4>
+                 <h4 className="text-lg font-semibold text-sat-white mt-4">Server Statis (`server/server.js`)</h4>
                  <CodeSnippet language="javascript">{serverJs}</CodeSnippet>
                  <h4 className="text-lg font-semibold text-sat-white mt-4">Process Manager (`server/ecosystem.config.js`)</h4>
                  <CodeSnippet language="javascript">{ecosystemJs}</CodeSnippet>
