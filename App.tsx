@@ -11,7 +11,8 @@ import { ToastNotification } from './components/ToastNotification';
 import { KNOWLEDGE_BASE_DATA } from './constants';
 import * as localMemory from './services/localMemoryService';
 import type { KnowledgeBaseEntry, AnalysisResult, RepairHistoryEntry, RepairScriptStatus, MemoryPackage, QuarantinedMemoryPackage, MergeStrategy, AuditLogEntry, StateSnapshot } from './types';
-import { RobotIcon, KnowledgeIcon, HistoryIcon, InboxStackIcon, AuditIcon, TestTubeIcon } from './components/CustomIcons';
+import { RobotIcon, KnowledgeIcon, HistoryIcon, InboxStackIcon, AuditIcon, TestTubeIcon, DeploymentIcon } from './components/CustomIcons';
+import { DeploymentGuide } from './components/DeploymentGuide';
 
 function App() {
     const [learnedKnowledge, setLearnedKnowledge] = useState<KnowledgeBaseEntry[]>([]);
@@ -249,6 +250,10 @@ function App() {
                             onClearHistory={handleClearHistory}
                             onUpdateStatus={handleUpdateStatus}
                         />
+                    </SectionCard>
+
+                    <SectionCard title="Final Deployment Guide" icon={DeploymentIcon}>
+                        <DeploymentGuide />
                     </SectionCard>
                 </main>
                 

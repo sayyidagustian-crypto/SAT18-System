@@ -74,3 +74,11 @@ export const UploadIcon: React.FC<IconProps> = ({ className }) => (
         <path d="M3.5 14.75a.75.75 0 00-1.5 0v1.5A2.75 2.75 0 004.75 19h10.5A2.75 2.75 0 0018 16.25v-1.5a.75.75 0 00-1.5 0v1.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-1.5z" />
     </svg>
 );
+
+export const DeploymentIcon: React.FC<IconProps> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className ?? "w-5 h-5"}>
+        <path d="M3.5 4.5A1.5 1.5 0 015 3h10a1.5 1.5 0 011.5 1.5v1.5a.5.5 0 01-1 0V5a.5.5 0 00-.5-.5H5a.5.5 0 00-.5.5v1A.5.5 0 013.5 6v-.5z" />
+        <path d="M3.5 8.5A1.5 1.5 0 015 7h10a1.5 1.5 0 011.5 1.5v1.5a.5.5 0 01-1 0V9a.5.5 0 00-.5-.5H5a.5.5 0 00-.5.5v1A.5.5 0 013.5 10v-.5z" />
+        <path d="M5 11.5A1.5 1.5 0 003.5 13v1.5a.5.5 0 001 0V13a.5.5 0 01.5-.5h10a.5.5 0 01.5.5v1.5a.5.5 0 001 0V13a1.5 1.5 0 00-1.5-1.5H5z" />
+    </svg>
+);
