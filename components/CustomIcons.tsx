@@ -67,3 +67,10 @@ export const TestTubeIcon: React.FC<IconProps> = ({ className }) => (
         <path fillRule="evenodd" d="M10 2a.75.75 0 01.75.75v3.68l3.963 7.925a2.25 2.25 0 01-2.013 3.145H7.299a2.25 2.25 0 01-2.013-3.145L9.25 6.43V2.75A.75.75 0 0110 2zM8.5 6.5a.5.5 0 000 1h3a.5.5 0 000-1h-3zM8 9a.5.5 0 01.5-.5h2a.5.5 0 010 1h-2A.5.5 0 018 9z" clipRule="evenodd" />
     </svg>
 );
+
+export const UploadIcon: React.FC<IconProps> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className ?? "w-5 h-5"}>
+        <path fillRule="evenodd" d="M9.25 13.25a.75.75 0 001.5 0V4.66l2.1 1.95a.75.75 0 101-1.12l-3.25-3-3.25 3a.75.75 0 001 1.12l2.1-1.95v8.59z" clipRule="evenodd" />
+        <path d="M3.5 14.75a.75.75 0 00-1.5 0v1.5A2.75 2.75 0 004.75 19h10.5A2.75 2.75 0 0018 16.25v-1.5a.75.75 0 00-1.5 0v1.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-1.5z" />
+    </svg>
+);

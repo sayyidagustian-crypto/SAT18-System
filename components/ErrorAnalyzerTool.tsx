@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { analyzeLog } from '../services/analyzerService';
 import { generateFixScriptWithGemini } from '../services/geminiService';
 import type { AnalysisResult, KnowledgeBaseEntry, RepairHistoryEntry } from '../types';
@@ -6,7 +6,7 @@ import { isKnownError } from '../utils/knowledgeUtils';
 import { isRiskyScript, getConfidenceDetails } from '../utils/scriptUtils';
 import { fuzzyMatch } from '../utils/fuzzyMatch';
 import { CodeBlock } from './CodeBlock';
-import { RobotIcon, SearchIcon } from './CustomIcons';
+import { RobotIcon, SearchIcon, UploadIcon } from './CustomIcons';
 
 
 interface ErrorAnalyzerToolProps {
@@ -34,6 +34,8 @@ export const ErrorAnalyzerTool: React.FC<ErrorAnalyzerToolProps> = ({ knowledgeB
     const [fadingOutItems, setFadingOutItems] = useState<Set<string>>(new Set());
     const [fixScripts, setFixScripts] = useState<Record<string, string>>({});
     const [generatingScriptFor, setGeneratingScriptFor] = useState<Set<string>>(new Set());
+    const [isDraggingOver, setIsDraggingOver] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
 
     useEffect(() => {
@@ -45,7 +47,9 @@ export const ErrorAnalyzerTool: React.FC<ErrorAnalyzerToolProps> = ({ knowledgeB
     }, [knowledgeBase]);
 
 
-    const handleAnalyze = async () => {
+    const performAnalysis = async (logToAnalyze: string) => {
+        if (!logToAnalyze) return;
+
         setIsLoading(true);
         setAnalyzed(true);
         setError(null);
@@ -57,7 +61,7 @@ export const ErrorAnalyzerTool: React.FC<ErrorAnalyzerToolProps> = ({ knowledgeB
         setGeneratingScriptFor(new Set());
 
         try {
-            const results = await analyzeLog(logContent);
+            const results = await analyzeLog(logToAnalyze);
 
             const knownResults = results.filter(r => isKnownError(r, knowledgeBase));
             const unknownResults = results.filter(r => !isKnownError(r, knowledgeBase));
@@ -70,6 +74,48 @@ export const ErrorAnalyzerTool: React.FC<ErrorAnalyzerToolProps> = ({ knowledgeB
             setError("An unexpected error occurred. Please try again.");
         } finally {
             setIsLoading(false);
+        }
+    };
+    
+    const handleFileRead = (file: File) => {
+        if (file.size > 5 * 1024 * 1024) { // 5MB limit
+            setError("File is too large. Please select a file smaller than 5MB.");
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const text = e.target?.result as string;
+            if (text) {
+                setLogContent(text);
+                performAnalysis(text);
+            }
+        };
+        reader.onerror = () => setError("Failed to read the file.");
+        reader.readAsText(file);
+    };
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            handleFileRead(e.target.files[0]);
+        }
+        e.target.value = ''; // Reset to allow re-uploading the same file
+    };
+
+    const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        setIsDraggingOver(true);
+    };
+
+    const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        setIsDraggingOver(false);
+    };
+
+    const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        setIsDraggingOver(false);
+        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+            handleFileRead(e.dataTransfer.files[0]);
         }
     };
 
@@ -187,21 +233,50 @@ export const ErrorAnalyzerTool: React.FC<ErrorAnalyzerToolProps> = ({ knowledgeB
     return (
         <div>
             <label htmlFor="log-input" className="block text-lg font-semibold text-sat-white mb-2">
-                Paste your build log here:
+                Paste your build log or drop a file:
             </label>
-            <textarea
-                id="log-input"
-                className="w-full h-64 bg-sat-blue text-sat-lightgray p-4 rounded-lg border-2 border-sat-gray focus:border-sat-accent focus:ring-2 focus:ring-sat-accent/50 transition-colors duration-200 font-mono text-sm"
-                placeholder="e.g., Error: Cannot find module 'express'..."
-                value={logContent}
-                onChange={(e) => setLogContent(e.target.value)}
-                aria-label="Build log input"
-            ></textarea>
-            <div className="text-center mt-6">
+            <div 
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                className={`relative rounded-lg border-2 transition-colors duration-200 ${isDraggingOver ? 'border-sat-accent' : 'border-sat-gray'}`}
+            >
+                <textarea
+                    id="log-input"
+                    className="w-full h-64 bg-sat-blue text-sat-lightgray p-4 rounded-lg border-none focus:ring-0 font-mono text-sm"
+                    placeholder="e.g., Error: Cannot find module 'express'..."
+                    value={logContent}
+                    onChange={(e) => setLogContent(e.target.value)}
+                    aria-label="Build log input"
+                ></textarea>
+                {isDraggingOver && (
+                    <div className="absolute inset-0 bg-sat-accent/20 flex items-center justify-center pointer-events-none rounded-lg">
+                        <p className="text-xl font-bold text-sat-accent">Drop file to analyze</p>
+                    </div>
+                )}
+            </div>
+            
+            <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={handleFileChange} 
+                className="hidden" 
+                accept=".log,.txt,text/plain"
+            />
+            
+            <div className="flex flex-col sm:flex-row justify-between items-center mt-6 gap-4">
+                 <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full sm:w-auto px-6 py-3 flex items-center justify-center gap-2 bg-sat-gray text-sat-white font-bold rounded-lg hover:bg-sat-lightgray hover:text-sat-blue transition-colors"
+                    aria-label="Upload a log file"
+                >
+                    <UploadIcon className="h-5 w-5" />
+                    Upload Log File
+                </button>
                 <button
-                    onClick={handleAnalyze}
+                    onClick={() => performAnalysis(logContent)}
                     disabled={!logContent || isLoading}
-                    className="px-8 py-3 bg-sat-accent text-sat-blue font-bold rounded-lg shadow-lg hover:bg-sky-400 transform hover:-translate-y-1 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                    className="w-full sm:w-auto px-8 py-3 bg-sat-accent text-sat-blue font-bold rounded-lg shadow-lg hover:bg-sky-400 transform hover:-translate-y-1 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                 >
                     {isLoading ? (
                         <div className="flex items-center justify-center">

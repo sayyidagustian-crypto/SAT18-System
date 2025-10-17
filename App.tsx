@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { ErrorAnalyzerTool } from './components/ErrorAnalyzerTool';
 import { KnowledgeBase } from './components/KnowledgeBase';
 import { RepairHistory } from './components/RepairHistory';
@@ -6,11 +6,12 @@ import { SectionCard } from './components/SectionCard';
 import { CollaborativeSharing } from './components/CollaborativeSharing';
 import { QuarantineQueue } from './components/QuarantineQueue';
 import { AuditTrail } from './components/AuditTrail';
-import { SmokeTestGuide } from './components/SmokeTestGuide'; // New import
+import { SmokeTestGuide } from './components/SmokeTestGuide';
+import { ToastNotification } from './components/ToastNotification';
 import { KNOWLEDGE_BASE_DATA } from './constants';
 import * as localMemory from './services/localMemoryService';
 import type { KnowledgeBaseEntry, AnalysisResult, RepairHistoryEntry, RepairScriptStatus, MemoryPackage, QuarantinedMemoryPackage, MergeStrategy, AuditLogEntry, StateSnapshot } from './types';
-import { RobotIcon, KnowledgeIcon, HistoryIcon, InboxStackIcon, AuditIcon, TestTubeIcon } from './components/CustomIcons'; // New import
+import { RobotIcon, KnowledgeIcon, HistoryIcon, InboxStackIcon, AuditIcon, TestTubeIcon } from './components/CustomIcons';
 
 function App() {
     const [learnedKnowledge, setLearnedKnowledge] = useState<KnowledgeBaseEntry[]>([]);
@@ -18,6 +19,9 @@ function App() {
     const [quarantinedPackages, setQuarantinedPackages] = useState<QuarantinedMemoryPackage[]>([]);
     const [auditLog, setAuditLog] = useState<AuditLogEntry[]>([]);
     const [highlightedItem, setHighlightedItem] = useState<string | null>(null);
+    const [progress, setProgress] = useState({ completed: 0, total: 0 });
+    const [toast, setToast] = useState<{ show: boolean; message: string }>({ show: false, message: '' });
+    const prevCompletedRef = useRef(0);
     
     useEffect(() => {
         setLearnedKnowledge(localMemory.loadLearnedKnowledgeBase());
@@ -25,6 +29,25 @@ function App() {
         setQuarantinedPackages(localMemory.loadQuarantinedPackages());
         setAuditLog(localMemory.loadAuditLog());
     }, []);
+
+    const handleProgressUpdate = useCallback((completed: number, total: number) => {
+        setProgress({ completed, total });
+    }, []);
+    
+    useEffect(() => {
+        if (progress.completed > 0 && progress.completed > prevCompletedRef.current) {
+            const messages = [
+                "Great progress!",
+                "Checklist updated.",
+                "Nice one!",
+                "Keep it up!",
+                "Test case passed!",
+            ];
+            const message = messages[Math.floor(Math.random() * messages.length)];
+            setToast({ show: true, message: `${message} (${progress.completed}/${progress.total})` });
+        }
+        prevCompletedRef.current = progress.completed;
+    }, [progress]);
 
     const handleAddToKnowledgeBase = useCallback((newDiscovery: AnalysisResult) => {
         setLearnedKnowledge(prevLearned => {
@@ -149,16 +172,15 @@ function App() {
     }, []);
 
     const handleResetState = useCallback(() => {
-        if (window.confirm("RESET ALL DATA? This is irreversible and will clear all learned knowledge, history, quarantine, and audit logs for a clean smoke test run.")) {
+        if (window.confirm("RESET ALL APP DATA? This is irreversible and will clear the knowledge base, history, quarantine, audit logs, AND all smoke test progress.")) {
             localStorage.clear();
-            setLearnedKnowledge([]);
-            setRepairHistory([]);
-            setQuarantinedPackages([]);
-            setAuditLog([]);
-            // Note: This does not reset the smoke test guide's state, which is fine as it's ephemeral.
+            sessionStorage.clear(); // This clears the smoke test progress
+            // Force a reload to ensure all state, including from sessionStorage, is cleared and re-initialized.
+            window.location.reload();
         }
     }, []);
-
+    
+    const progressPercentage = progress.total > 0 ? (progress.completed / progress.total) * 100 : 0;
 
     return (
         <div className="bg-sat-darkblue min-h-screen text-sat-lightgray p-4 sm:p-6 md:p-8 font-sans">
@@ -170,11 +192,20 @@ function App() {
                     <p className="text-lg text-sat-accent">
                         End-to-End Smoke Test Execution Sheet
                     </p>
+                    <div className="mt-6 max-w-lg mx-auto">
+                        <div className="flex justify-between items-center text-sm font-bold mb-1">
+                            <span className="text-sat-white">Test Progress</span>
+                            <span className="text-sat-accent">{progress.completed} / {progress.total} Completed</span>
+                        </div>
+                        <div className="w-full bg-sat-blue rounded-full h-2.5 border border-sat-gray">
+                            <div className="bg-sat-accent h-2.5 rounded-full transition-all duration-500" style={{ width: `${progressPercentage}%` }}></div>
+                        </div>
+                    </div>
                 </header>
 
                 <main className="space-y-6">
                     <SectionCard title="Execution Guide & Checklist" icon={TestTubeIcon} startOpen={true}>
-                       <SmokeTestGuide onResetState={handleResetState} />
+                       <SmokeTestGuide onResetState={handleResetState} onProgressUpdate={handleProgressUpdate} />
                     </SectionCard>
                     
                     <SectionCard title="Log Analyzer & Repair Assistant" icon={RobotIcon} startOpen={true}>
@@ -225,6 +256,11 @@ function App() {
                     <p>Powered by Gemini. Built for speed and accuracy.</p>
                 </footer>
             </div>
+             <ToastNotification 
+                show={toast.show} 
+                message={toast.message}
+                onClose={() => setToast(t => ({ ...t, show: false }))}
+            />
         </div>
     );
 }
