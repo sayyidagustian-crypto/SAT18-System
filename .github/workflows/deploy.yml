@@ -1,0 +1,79 @@
+name: SAT18 Deploy
+
+on:
+  push:
+    branches: ["main"]
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build app
+        run: npm run build
+
+      - name: Archive dist
+        run: |
+          mkdir -p artifacts
+          tar -czf artifacts/sat18-dist.tar.gz -C dist .
+          ls -lh artifacts
+
+      - name: Upload artifacts to VPS (create dirs & snapshot old)
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          script: |
+            set -e
+            REMOTE_DIR=~/sat18-deploy
+            mkdir -p $REMOTE_DIR/snapshots
+            mkdir -p $REMOTE_DIR/current
+            # snapshot lama jika ada isi
+            if [ -n "$(ls -A $REMOTE_DIR/current 2>/dev/null)" ]; then
+              TS=$(date +"%Y%m%d-%H%M%S")
+              tar -czf $REMOTE_DIR/snapshots/snapshot-$TS.tar.gz -C $REMOTE_DIR/current .
+              echo "Snapshot dibuat: snapshot-$TS.tar.gz"
+            fi
+
+      - name: Transfer new dist tarball
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          source: "artifacts/sat18-dist.tar.gz"
+          target: "~/sat18-deploy/"
+
+      - name: Unpack dist & restart pm2
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          script: |
+            set -e
+            REMOTE_DIR=~/sat18-deploy
+            cd $REMOTE_DIR
+            rm -rf current/*
+            tar -xzf sat18-dist.tar.gz -C current
+            rm -f sat18-dist.tar.gz
+            # jalankan/refresh proxy melalui pm2
+            pm2 start server/ecosystem.config.js --only sat18-proxy || true
+            pm2 restart sat18-proxy || pm2 start server/ecosystem.config.js --only sat18-proxy
+            pm2 save
+            echo "Deploy selesai."
